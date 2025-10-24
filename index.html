@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>E-Learning Informasi Kampus</title>
+  <title>WEBSITE FAKULTAS KEPERAWATAN</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
@@ -76,7 +76,7 @@
       <!-- Sidebar -->
       <aside class="col-lg-3 col-xl-2 sidebar text-center text-lg-start">
         <img src="11.jpg" alt="Logo Kampus" class="img-fluid rounded-circle mb-3" style="width:90px; height:90px; object-fit:cover;">
-        <h5>E-Learning Kampus</h5>
+        <h5>WEBSITE FAKULTAS KEPERAWATAN</h5>
         <h6>Program Studi:</h6>
         <ul class="list-unstyled" id="prodiList"></ul>
         <hr class="text-dark">
@@ -160,56 +160,59 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Local Storage Helpers
+    // Helper LocalStorage
     const getLS = (k, f=null) => JSON.parse(localStorage.getItem(k) || JSON.stringify(f));
-    const setLS = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+    const setLS = (k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
-    // Demo data
-    if(!getLS('prodi')) setLS('prodi', ['Teknik Informatika','Sistem Informasi','Manajemen','Akuntansi']);
+    // Program Studi baru
+    const daftarProdi = [
+      'Ilmu Keperawatan S1',
+      'Profesi Ners',
+      'D4 Bidan Pendidik',
+      'D3 Kebidanan'
+    ];
+
+    if(!getLS('prodi')) setLS('prodi', daftarProdi);
     if(!getLS('users')) setLS('users', [
       {username:'admin', password:'admin123', role:'admin'},
       {username:'super', password:'super123', role:'super_admin'}
     ]);
     if(!getLS('posts')) setLS('posts', [
-      {id:1,title:'Orientasi Mahasiswa Baru',category:'kegiatan',prodi:'Teknik Informatika',content:'Orientasi 1 Sept 2025 di aula utama.',image:''},
-      {id:2,title:'Daftar Dosen TI',category:'dosen',prodi:'Teknik Informatika',content:'Dr. Ahmad Yani, M.Kom - Keahlian AI',image:''},
-      {id:3,title:'Akreditasi SI',category:'akreditasi',prodi:'Sistem Informasi',content:'Terakreditasi B hingga 2027',image:''}
+      {id:1,title:'Orientasi Mahasiswa Baru',category:'kegiatan',prodi:'Ilmu Keperawatan S1',content:'Orientasi 1 Sept 2025 di aula utama.',image:''},
+      {id:2,title:'Daftar Dosen Keperawatan',category:'dosen',prodi:'Ilmu Keperawatan S1',content:'Ns. Rina, S.Kep., M.Kep - Keahlian Keperawatan Medikal Bedah',image:''},
+      {id:3,title:'Akreditasi Profesi Ners',category:'akreditasi',prodi:'Profesi Ners',content:'Terakreditasi B hingga 2027',image:''}
     ]);
 
-    // Elements
-    const prodiList = document.getElementById('prodiList');
-    const prodiSelect = document.getElementById('prodiSelect');
-    const cardsEl = document.getElementById('cards');
-    const imageUpload = document.getElementById('imageUpload');
-    const previewImage = document.getElementById('previewImage');
-    const existingImage = document.getElementById('existingImage');
-    const postForm = document.getElementById('postForm');
-    const postsList = document.getElementById('postsList');
-    const loginModal = new bootstrap.Modal('#loginModal');
-    const adminPanel = document.getElementById('adminPanel');
-    const adminName = document.getElementById('adminName');
-    const adminRole = document.getElementById('adminRole');
-    const modeLabel = document.getElementById('modeLabel');
+    // Elemen DOM
+    const prodiList=document.getElementById('prodiList');
+    const prodiSelect=document.getElementById('prodiSelect');
+    const cardsEl=document.getElementById('cards');
+    const postForm=document.getElementById('postForm');
+    const postsList=document.getElementById('postsList');
+    const imageUpload=document.getElementById('imageUpload');
+    const previewImage=document.getElementById('previewImage');
+    const existingImage=document.getElementById('existingImage');
+    const adminPanel=document.getElementById('adminPanel');
+    const loginModal=new bootstrap.Modal('#loginModal');
+    const adminName=document.getElementById('adminName');
+    const adminRole=document.getElementById('adminRole');
+    const modeLabel=document.getElementById('modeLabel');
+    let currentProdi=null, currentFilter=null;
 
-    let currentProdi = null;
-    let currentFilter = null;
-
-    // File Reader
-    function readFileAsDataURL(file){
-      return new Promise((res,rej)=>{
-        const reader=new FileReader();
-        reader.onload=()=>res(reader.result);
-        reader.onerror=()=>rej("Gagal membaca file");
-        reader.readAsDataURL(file);
-      });
-    }
+    // File reader
+    const readFileAsDataURL=file=>new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result);
+      r.onerror=()=>rej();
+      r.readAsDataURL(file);
+    });
 
     // Preview Gambar
-    imageUpload.addEventListener('change', async e=>{
+    imageUpload.addEventListener('change',async e=>{
       const f=e.target.files[0];
-      if(!f){ previewImage.classList.add('d-none'); return; }
-      const dataURL=await readFileAsDataURL(f);
-      previewImage.src=dataURL;
+      if(!f){previewImage.classList.add('d-none');return;}
+      const data=await readFileAsDataURL(f);
+      previewImage.src=data;
       previewImage.classList.remove('d-none');
     });
 
@@ -228,8 +231,7 @@
         opt.value=p; opt.textContent=p; prodiSelect.appendChild(opt);
       });
       const umum=document.createElement('option');
-      umum.value='Umum'; umum.textContent='Umum';
-      prodiSelect.appendChild(umum);
+      umum.value='Umum'; umum.textContent='Umum'; prodiSelect.appendChild(umum);
       currentProdi=prodis[0]||'Umum';
     }
 
@@ -239,7 +241,7 @@
       let list=posts.slice().reverse();
       if(currentFilter) list=list.filter(p=>p.category===currentFilter);
       if(currentProdi) list=list.filter(p=>p.prodi===currentProdi || p.prodi==='Umum');
-      cardsEl.innerHTML=list.length? '' : '<div class="text-muted">Tidak ada informasi.</div>';
+      cardsEl.innerHTML=list.length?'':'<div class="text-muted">Tidak ada informasi.</div>';
       list.forEach(p=>{
         cardsEl.innerHTML+=`
         <div class="col-12 col-md-6 col-lg-4">
@@ -253,7 +255,7 @@
       });
     }
 
-    // Render Admin Posts
+    // Render Post Admin
     function renderAdminPosts(){
       const posts=getLS('posts',[]);
       postsList.innerHTML='';
@@ -285,7 +287,6 @@
       if(p.image){previewImage.src=p.image;previewImage.classList.remove('d-none');}
       else previewImage.classList.add('d-none');
       imageUpload.value='';
-      openAdminPanel();
     };
 
     // Delete
@@ -312,16 +313,15 @@
       if(id) posts=posts.map(p=>p.id===id?{...p,title,category:cat,prodi,content,image:img}:p);
       else posts.push({id:Date.now(),title,category:cat,prodi,content,image:img});
       setLS('posts',posts);
-      postForm.reset();previewImage.classList.add('d-none');
-      existingImage.value='';renderAdminPosts();renderCards();
+      postForm.reset();previewImage.classList.add('d-none');existingImage.value='';
+      renderAdminPosts();renderCards();
     };
 
-    // Panel
+    // Panel & Login
     function openAdminPanel(){adminPanel.style.display='block';renderAdminPosts();modeLabel.textContent='Admin';}
     document.getElementById('togglePanel').onclick=()=>adminPanel.style.display='none';
     document.getElementById('cancelEdit').onclick=()=>{postForm.reset();previewImage.classList.add('d-none');};
 
-    // Login
     document.getElementById('loginBtn').onclick=()=>loginModal.show();
     document.getElementById('doLogin').onclick=()=>{
       const u=document.getElementById('username').value;
