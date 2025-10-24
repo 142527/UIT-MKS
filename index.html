@@ -16,9 +16,12 @@
       min-height: 100vh;
       padding: 20px;
     }
+    .sidebar h5, .sidebar h6 {
+      font-weight: bold;
+    }
     @media (max-width: 991px) {
       .sidebar {
-        position: static;
+        position: relative;
         min-height: auto;
         width: 100%;
         text-align: center;
@@ -30,6 +33,15 @@
     .main {
       margin-left: 260px;
       padding: 20px;
+    }
+    .prodi-item {
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: background-color 0.2s;
+    }
+    .prodi-item:hover {
+      background-color: rgba(0,0,0,0.1);
+      cursor: pointer;
     }
     .card {
       border: none;
@@ -56,24 +68,19 @@
       border-radius: 8px;
       margin-bottom: 10px;
     }
-    #cards .card img {
-      border-radius: 8px;
-      height: 160px;
-      object-fit: cover;
-    }
   </style>
 </head>
 <body>
   <div class="container-fluid">
     <div class="row g-0">
       <!-- Sidebar -->
-      <aside class="col-lg-3 col-xl-2 sidebar d-flex flex-column align-items-center align-items-lg-start">
+      <aside class="col-lg-3 col-xl-2 sidebar text-center text-lg-start">
         <img src="11.jpg" alt="Logo Kampus" class="img-fluid rounded-circle mb-3" style="width:90px; height:90px; object-fit:cover;">
-        <h5 class="fw-bold text-center text-lg-start">E-Learning Kampus</h5>
-        <h6 class="text-center text-lg-start">Program Studi:</h6>
-        <ul class="list-unstyled w-100" id="prodiList"></ul>
-        <hr class="text-dark w-100">
-        <div class="small text-center text-lg-start">
+        <h5>E-Learning Kampus</h5>
+        <h6>Program Studi:</h6>
+        <ul class="list-unstyled" id="prodiList"></ul>
+        <hr class="text-dark">
+        <div class="small">
           <div>Mode: <span id="modeLabel">Pengguna Umum</span></div>
           <button class="btn btn-sm btn-dark mt-2" id="loginBtn">Login Admin</button>
         </div>
@@ -93,7 +100,6 @@
             <button class="btn btn-outline-success btn-sm" data-filter="pembayaran">Pembayaran</button>
           </div>
         </div>
-
         <div id="cards" class="row g-3"></div>
       </main>
     </div>
@@ -154,8 +160,198 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // seluruh JavaScript dari versi kamu tetap sama (tidak dihapus)
-    // kamu tinggal salin ulang JS kamu di bawah ini.
+    // Local Storage Helpers
+    const getLS = (k, f=null) => JSON.parse(localStorage.getItem(k) || JSON.stringify(f));
+    const setLS = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+    // Demo data
+    if(!getLS('prodi')) setLS('prodi', ['Teknik Informatika','Sistem Informasi','Manajemen','Akuntansi']);
+    if(!getLS('users')) setLS('users', [
+      {username:'admin', password:'admin123', role:'admin'},
+      {username:'super', password:'super123', role:'super_admin'}
+    ]);
+    if(!getLS('posts')) setLS('posts', [
+      {id:1,title:'Orientasi Mahasiswa Baru',category:'kegiatan',prodi:'Teknik Informatika',content:'Orientasi 1 Sept 2025 di aula utama.',image:''},
+      {id:2,title:'Daftar Dosen TI',category:'dosen',prodi:'Teknik Informatika',content:'Dr. Ahmad Yani, M.Kom - Keahlian AI',image:''},
+      {id:3,title:'Akreditasi SI',category:'akreditasi',prodi:'Sistem Informasi',content:'Terakreditasi B hingga 2027',image:''}
+    ]);
+
+    // Elements
+    const prodiList = document.getElementById('prodiList');
+    const prodiSelect = document.getElementById('prodiSelect');
+    const cardsEl = document.getElementById('cards');
+    const imageUpload = document.getElementById('imageUpload');
+    const previewImage = document.getElementById('previewImage');
+    const existingImage = document.getElementById('existingImage');
+    const postForm = document.getElementById('postForm');
+    const postsList = document.getElementById('postsList');
+    const loginModal = new bootstrap.Modal('#loginModal');
+    const adminPanel = document.getElementById('adminPanel');
+    const adminName = document.getElementById('adminName');
+    const adminRole = document.getElementById('adminRole');
+    const modeLabel = document.getElementById('modeLabel');
+
+    let currentProdi = null;
+    let currentFilter = null;
+
+    // File Reader
+    function readFileAsDataURL(file){
+      return new Promise((res,rej)=>{
+        const reader=new FileReader();
+        reader.onload=()=>res(reader.result);
+        reader.onerror=()=>rej("Gagal membaca file");
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Preview Gambar
+    imageUpload.addEventListener('change', async e=>{
+      const f=e.target.files[0];
+      if(!f){ previewImage.classList.add('d-none'); return; }
+      const dataURL=await readFileAsDataURL(f);
+      previewImage.src=dataURL;
+      previewImage.classList.remove('d-none');
+    });
+
+    // Render Prodi
+    function renderProdi(){
+      const prodis=getLS('prodi',[]);
+      prodiList.innerHTML='';
+      prodiSelect.innerHTML='';
+      prodis.forEach(p=>{
+        const li=document.createElement('li');
+        li.textContent=p;
+        li.className='prodi-item';
+        li.onclick=()=>{currentProdi=p;renderCards();};
+        prodiList.appendChild(li);
+        const opt=document.createElement('option');
+        opt.value=p; opt.textContent=p; prodiSelect.appendChild(opt);
+      });
+      const umum=document.createElement('option');
+      umum.value='Umum'; umum.textContent='Umum';
+      prodiSelect.appendChild(umum);
+      currentProdi=prodis[0]||'Umum';
+    }
+
+    // Render Cards
+    function renderCards(){
+      const posts=getLS('posts',[]);
+      let list=posts.slice().reverse();
+      if(currentFilter) list=list.filter(p=>p.category===currentFilter);
+      if(currentProdi) list=list.filter(p=>p.prodi===currentProdi || p.prodi==='Umum');
+      cardsEl.innerHTML=list.length? '' : '<div class="text-muted">Tidak ada informasi.</div>';
+      list.forEach(p=>{
+        cardsEl.innerHTML+=`
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="card p-3 h-100">
+            ${p.image?`<img src="${p.image}" class="img-fluid mb-2 rounded" style="height:150px;object-fit:cover;">`:''}
+            <h5>${p.title}</h5>
+            <small class="text-muted">${p.category} • ${p.prodi}</small>
+            <p class="mt-2">${p.content}</p>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Render Admin Posts
+    function renderAdminPosts(){
+      const posts=getLS('posts',[]);
+      postsList.innerHTML='';
+      posts.slice().reverse().forEach(p=>{
+        postsList.innerHTML+=`
+        <div class="border rounded p-2 mb-2">
+          ${p.image?`<img src="${p.image}" class="img-fluid mb-2 rounded" style="height:100px;object-fit:cover;">`:''}
+          <b>${p.title}</b> <small class="text-muted">(${p.category} - ${p.prodi})</small>
+          <div>${p.content}</div>
+          <div class="mt-1 text-end">
+            <button class="btn btn-sm btn-outline-primary me-1" onclick="editPost(${p.id})">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deletePost(${p.id})">Hapus</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Edit
+    window.editPost=id=>{
+      const posts=getLS('posts',[]);
+      const p=posts.find(x=>x.id===id);
+      if(!p)return;
+      document.getElementById('editingId').value=p.id;
+      document.getElementById('title').value=p.title;
+      document.getElementById('category').value=p.category;
+      document.getElementById('prodiSelect').value=p.prodi;
+      document.getElementById('content').value=p.content;
+      existingImage.value=p.image||'';
+      if(p.image){previewImage.src=p.image;previewImage.classList.remove('d-none');}
+      else previewImage.classList.add('d-none');
+      imageUpload.value='';
+      openAdminPanel();
+    };
+
+    // Delete
+    window.deletePost=id=>{
+      if(!confirm("Yakin hapus?"))return;
+      let posts=getLS('posts',[]);
+      posts=posts.filter(p=>p.id!==id);
+      setLS('posts',posts);
+      renderAdminPosts();renderCards();
+    };
+
+    // Submit
+    postForm.onsubmit=async e=>{
+      e.preventDefault();
+      const id=+document.getElementById('editingId').value||0;
+      const title=document.getElementById('title').value.trim();
+      const cat=document.getElementById('category').value;
+      const prodi=document.getElementById('prodiSelect').value;
+      const content=document.getElementById('content').value.trim();
+      if(!title||!content)return alert('Lengkapi form!');
+      let img=existingImage.value||'';
+      if(imageUpload.files[0]) img=await readFileAsDataURL(imageUpload.files[0]);
+      let posts=getLS('posts',[]);
+      if(id) posts=posts.map(p=>p.id===id?{...p,title,category:cat,prodi,content,image:img}:p);
+      else posts.push({id:Date.now(),title,category:cat,prodi,content,image:img});
+      setLS('posts',posts);
+      postForm.reset();previewImage.classList.add('d-none');
+      existingImage.value='';renderAdminPosts();renderCards();
+    };
+
+    // Panel
+    function openAdminPanel(){adminPanel.style.display='block';renderAdminPosts();modeLabel.textContent='Admin';}
+    document.getElementById('togglePanel').onclick=()=>adminPanel.style.display='none';
+    document.getElementById('cancelEdit').onclick=()=>{postForm.reset();previewImage.classList.add('d-none');};
+
+    // Login
+    document.getElementById('loginBtn').onclick=()=>loginModal.show();
+    document.getElementById('doLogin').onclick=()=>{
+      const u=document.getElementById('username').value;
+      const p=document.getElementById('password').value;
+      const users=getLS('users',[]);
+      const found=users.find(x=>x.username===u&&x.password===p);
+      if(!found)return alert('Login gagal');
+      setLS('session',found);
+      adminName.textContent=found.username;
+      adminRole.textContent=found.role;
+      loginModal.hide();
+      openAdminPanel();
+    };
+    document.getElementById('logoutBtn').onclick=()=>{
+      localStorage.removeItem('session');
+      adminPanel.style.display='none';
+      modeLabel.textContent='Pengguna Umum';
+    };
+
+    document.querySelectorAll('[data-filter]').forEach(btn=>{
+      btn.onclick=()=>{currentFilter=btn.dataset.filter;renderCards();};
+    });
+
+    // Init
+    function init(){
+      renderProdi();renderCards();
+      const s=getLS('session',null);
+      if(s){adminName.textContent=s.username;adminRole.textContent=s.role;openAdminPanel();}
+    }
+    init();
   </script>
 </body>
 </html>
